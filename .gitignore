@@ -1,0 +1,4 @@
+.idea/*
+terrareg/charts/*
+terrareg/Chart.lock
+/terrareg/values-local.yaml

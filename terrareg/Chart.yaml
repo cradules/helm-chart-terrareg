@@ -1,6 +1,12 @@
 apiVersion: v2
 name: terrareg
-description: A Helm chart for Kubernetes
+description: Helm chart for hosted Terraform Registry (Terrareg)
+
+dependencies:
+  - name: mariadb
+    version: 19.0.5  # You can update to the latest version
+    repository: https://charts.bitnami.com/bitnami
+    condition: mariadb.enabled
 
 # A chart can be either an 'application' or a 'library' chart.
 #

@@ -30,12 +30,44 @@ spec:
       serviceAccountName: {{ include "terrareg.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: wait-for-mariadb
+          image: busybox
+          command: ['sh', '-c', 'until nc -z {{ include "terrareg.fullname" . }}-mariadb 3306; do echo waiting for mariadb; sleep 5; done']
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: PUBLIC_URL
+              value: {{ .Values.environment.PUBLIC_URL | quote }}
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: SECRET_KEY
+                  name: {{ .Values.existingSecret }}
+            - name: ADMIN_AUTHENTICATION_TOKEN
+              valueFrom:
+                  secretKeyRef:
+                    key: ADMIN_AUTHENTICATION_TOKEN
+                    name: {{ .Values.existingSecret }}
+            - name: MIGRATE_DATABASE
+              value: {{ .Values.environment.MIGRATE_DATABASE | quote }}
+            {{- if .Values.mariadb.enabled}}
+            - name: MARIADB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "terrareg.fullname" . }}-db-secret
+                  key: mariadb-password
+            - name: DATABASE_URL
+              value: "mysql+mysqlconnector://{{ .Values.mariadb.auth.username }}:$(MARIADB_PASSWORD)@{{ include "terrareg.fullname" . }}-mariadb:3306/{{ .Values.mariadb.auth.database }}"
+              {{end}}
+            - name: LISTEN_PORT
+              value: {{ .Values.environment.LISTEN_PORT | quote }}
+            - name: SERVER
+              value: {{ .Values.environment.SERVER | quote }}
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
@@ -46,14 +78,18 @@ spec:
             {{- toYaml .Values.readinessProbe | nindent 12 }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- with .Values.volumeMounts }}
           volumeMounts:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-      {{- with .Values.volumes }}
+            {{- if .Values.persistence.enabled }}
+            - name: {{ include "terrareg.fullname" . }}-data
+              mountPath: "/app/data"
+              readOnly: false
+            {{- end }}
       volumes:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- if .Values.persistence.enabled }}
+        - name: {{ include "terrareg.fullname" . }}-data
+          persistentVolumeClaim:
+            claimName: {{ include "terrareg.fullname" . }}-data
+        {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

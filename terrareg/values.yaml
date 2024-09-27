@@ -2,18 +2,24 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
+# This will set the replicaset count more information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/
 replicaCount: 1
 
+# This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
-  repository: nginx
+  repository: ghcr.io/matthewjohn/terrareg
+  # This sets the pull policy for images.
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: ""
+  tag: "v3.11.0"
 
+# This is for the secretes for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 imagePullSecrets: []
+# This is to override the chart name.
 nameOverride: ""
 fullnameOverride: ""
 
+#This section builds out the service account more information can be found here: https://kubernetes.io/docs/concepts/security/service-accounts/
 serviceAccount:
   # Specifies whether a service account should be created
   create: true
@@ -25,7 +31,11 @@ serviceAccount:
   # If not set and create is true, a name is generated using the fullname template
   name: ""
 
+# This is for setting Kubernetes Annotations to a Pod.
+# For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/ 
 podAnnotations: {}
+# This is for setting Kubernetes Labels to a Pod.
+# For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
 podLabels: {}
 
 podSecurityContext: {}
@@ -39,10 +49,14 @@ securityContext: {}
   # runAsNonRoot: true
   # runAsUser: 1000
 
+# This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
 service:
+  # This sets the service type more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
   type: ClusterIP
+  # This sets the ports more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports
   port: 80
 
+# This block is for setting up the ingress for more information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
 ingress:
   enabled: false
   className: ""
@@ -59,18 +73,19 @@ ingress:
   #    hosts:
   #      - chart-example.local
 
-resources: {}
+resources:
   # We usually recommend not to specify default resources and to leave this as a conscious
   # choice for the user. This also increases chances charts run on environments with little
   # resources, such as Minikube. If you do want to specify resources, uncomment the following
   # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
-  # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
+#   limits:
+#     cpu: "500"
+#     memory: "512Mi"
+#   requests:
+#     cpu: "200"
+#     memory: "128Mi"
 
+# This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
 livenessProbe:
   httpGet:
     path: /
@@ -80,6 +95,8 @@ readinessProbe:
     path: /
     port: http
 
+#This section is for setting up autoscaling more information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/
+# The application does not support autoscaling, and  will be disabled by default. This is for future use.
 autoscaling:
   enabled: false
   minReplicas: 1
@@ -87,21 +104,69 @@ autoscaling:
   targetCPUUtilizationPercentage: 80
   # targetMemoryUtilizationPercentage: 80
 
-# Additional volumes on the output Deployment definition.
-volumes: []
-# - name: foo
-#   secret:
-#     secretName: mysecret
-#     optional: false
 
-# Additional volumeMounts on the output Deployment definition.
-volumeMounts: []
-# - name: foo
-#   mountPath: "/etc/foo"
-#   readOnly: true
+# By enabling persistence, a PersistentVolumeClaim will be created for the application and /app/data will be mounted to the volume.
+persistence:
+  enabled: false
+  size: 10Gi
+  storageClass: "" # In case of error "terrareg-data" is invalid: spec: Forbidden: spec is immutable after creation, you need to set the storageClass name to the matching storage class in your pvc
 
-nodeSelector: {}
+nodeSelector:
+  kubernetes.io/os: linux
 
 tolerations: []
 
 affinity: {}
+
+environment:
+  ##
+  # The Public URL of the application. If left empty, the protocol will be assumed to be HTTPS, the port will be assumed to be 443
+  #         The URL that is used for accessing Terrareg by end-users.
+  #
+  #        E.g.:
+  #
+  #        `https://terrareg.mycorp.com`
+  #
+  #        `https://terrareg.mycorg.com:8443`
+  #
+  #
+  #        Ensure the protocol is https if Terrareg is accessible over https.
+  #        Provide the port if necessary.
+  #
+  #        If left empty, the protocol will be assumed to be HTTPS, the port will be assumed to be 443
+  #        and the domain will fall back to be the value set in `DOMAIN_NAME`.
+   PUBLIC_URL: "https://chart-example.local"
+   ##
+   MIGRATE_DATABASE: "True"
+   ##
+   # Port for server to listen on. Default is 80
+   LISTEN_PORT: "80"
+   ##
+   #        Set the server application used for running the application. Set the `SERVER` environment variable to one of the following options:
+   #
+   #        * `builtin` - Use the default built-in flask web server. This is less performant and is no longer recommended for production use-cases.
+   #        * `waitress` - Uses [waitress](https://docs.pylonsproject.org/projects/waitress/en/latest/index.html) for running the application. This does not support SSL offloading, meaning that it must be used behind a reverse proxy that performs SSL-offloading.
+   SERVER: "waitress"
+
+# Existing secret to use for environment variables in the deployment container. Please follow the README.md for more information.
+existingSecret: "terrareg-secret"
+
+mariadb:
+  enabled: false
+  ## @param architecture MariaDB architecture (`standalone` or `replication`). For production, it is recommended to use `replication`
+  ##
+  architecture: standalone
+  auth:
+    ## @param auth.existingSecret Use existing secret for password details (`auth.rootPassword`, `auth.password`, `auth.replicationPassword` will be ignored and picked up from this secret). The secret has to contain the keys `mariadb-root-password`, `mariadb-replication-password` and `mariadb-password`
+    ##
+    existingSecret: "terrareg-db-secret"
+    ## @param auth.username Name for a custom user to create
+    ## ref: https://github.com/bitnami/containers/blob/main/bitnami/mariadb/README.md#creating-a-database-user-on-first-run
+    ##
+    username: "terrareg"
+    ## @param auth.database Name for a custom database to create
+    ## ref: https://github.com/bitnami/containers/blob/main/bitnami/mariadb/README.md#creating-a-database-on-first-run
+    ##
+    database: "terrareg"
+
+# For additional configuration of mariadb please refer to the following link: https://artifacthub.io/packages/helm/bitnami/mariadb
