@@ -107,7 +107,7 @@ autoscaling:
 
 # By enabling persistence, a PersistentVolumeClaim will be created for the application and /app/data will be mounted to the volume.
 persistence:
-  enabled: false
+  enabled: true
   size: 10Gi
   storageClass: "" # In case of error "terrareg-data" is invalid: spec: Forbidden: spec is immutable after creation, you need to set the storageClass name to the matching storage class in your pvc
 
@@ -152,7 +152,7 @@ environment:
 existingSecret: "terrareg-secret"
 
 mariadb:
-  enabled: false
+  enabled: true
   ## @param architecture MariaDB architecture (`standalone` or `replication`). For production, it is recommended to use `replication`
   ##
   architecture: standalone
